@@ -9,6 +9,9 @@
 (define-constant err-invalid-quantity (err u107))
 (define-constant err-already-used (err u108))
 (define-constant err-event-not-started (err u109))
+(define-constant err-not-listed (err u110))
+(define-constant err-price-cap-exceeded (err u111))
+(define-constant err-self-purchase (err u112))
 
 (define-data-var last-token-id uint u0)
 (define-data-var ticket-price uint u0)
@@ -43,6 +46,15 @@
         staff: principal,
     }
     bool
+)
+
+(define-map marketplace-listings
+    uint
+    {
+        seller: principal,
+        price: uint,
+        listed-block: uint,
+    }
 )
 
 (define-non-fungible-token event-ticket uint)
@@ -365,4 +377,64 @@
 
 (define-read-only (get-token-uri (token-id uint))
     (ok none)
+)
+
+(define-public (list-ticket-for-sale
+        (token-id uint)
+        (asking-price uint)
+    )
+    (let (
+            (ticket (unwrap! (map-get? tickets token-id) err-not-found))
+            (original-price (var-get ticket-price))
+            (max-allowed-price (* original-price u2))
+        )
+        (asserts! (is-eq (get owner ticket) tx-sender) err-not-authorized)
+        (asserts! (not (get used ticket)) err-already-used)
+        (asserts! (> (get event-date ticket) burn-block-height) err-event-ended)
+        (asserts! (get transfer-allowed ticket) err-ticket-locked)
+        (asserts! (<= asking-price max-allowed-price) err-price-cap-exceeded)
+        (asserts! (is-none (map-get? marketplace-listings token-id))
+            err-already-listed
+        )
+        (map-set marketplace-listings token-id {
+            seller: tx-sender,
+            price: asking-price,
+            listed-block: burn-block-height,
+        })
+        (ok true)
+    )
+)
+
+(define-public (remove-listing (token-id uint))
+    (let ((listing (unwrap! (map-get? marketplace-listings token-id) err-not-listed)))
+        (asserts! (is-eq (get seller listing) tx-sender) err-not-authorized)
+        (map-delete marketplace-listings token-id)
+        (ok true)
+    )
+)
+
+(define-public (purchase-listed-ticket (token-id uint))
+    (let (
+            (listing (unwrap! (map-get? marketplace-listings token-id) err-not-listed))
+            (ticket (unwrap! (map-get? tickets token-id) err-not-found))
+            (seller (get seller listing))
+            (sale-price (get price listing))
+            (owner-fee (/ (* sale-price u5) u100))
+            (seller-payment (- sale-price owner-fee))
+        )
+        (asserts! (not (is-eq tx-sender seller)) err-self-purchase)
+        (asserts! (is-eq (get owner ticket) seller) err-not-authorized)
+        (asserts! (not (get used ticket)) err-already-used)
+        (asserts! (> (get event-date ticket) burn-block-height) err-event-ended)
+        (try! (stx-transfer? seller-payment tx-sender seller))
+        (try! (stx-transfer? owner-fee tx-sender (var-get contract-owner)))
+        (try! (nft-transfer? event-ticket token-id seller tx-sender))
+        (map-set tickets token-id (merge ticket { owner: tx-sender }))
+        (map-delete marketplace-listings token-id)
+        (ok true)
+    )
+)
+
+(define-read-only (get-listing (token-id uint))
+    (map-get? marketplace-listings token-id)
 )
