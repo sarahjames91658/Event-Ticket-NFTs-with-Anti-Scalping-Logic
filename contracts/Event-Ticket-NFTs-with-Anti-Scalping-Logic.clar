@@ -12,6 +12,9 @@
 (define-constant err-not-listed (err u110))
 (define-constant err-price-cap-exceeded (err u111))
 (define-constant err-self-purchase (err u112))
+(define-constant err-event-cancelled (err u113))
+(define-constant err-refund-claimed (err u114))
+(define-constant err-refund-not-available (err u115))
 
 (define-data-var last-token-id uint u0)
 (define-data-var ticket-price uint u0)
@@ -25,6 +28,7 @@
         transfer-allowed: bool,
         used: bool,
         check-in-time: (optional uint),
+        refund-claimed: bool,
     }
 )
 
@@ -37,6 +41,8 @@
         tickets-sold: uint,
         check-in-start: uint,
         attendees-count: uint,
+        cancelled: bool,
+        refund-percentage: uint,
     }
 )
 
@@ -78,6 +84,7 @@
             transfer-allowed: false,
             used: false,
             check-in-time: none,
+            refund-claimed: false,
         })
         (map-set events event-id
             (merge event { tickets-sold: (+ (get tickets-sold event) u1) })
@@ -108,6 +115,8 @@
                 tickets-sold: u0,
                 check-in-start: check-in-start,
                 attendees-count: u0,
+                cancelled: false,
+                refund-percentage: u0,
             })
             (var-set ticket-price price)
             (var-set last-token-id event-id)
@@ -135,6 +144,8 @@
                 tickets-sold: u0,
                 check-in-start: (- event-date u144),
                 attendees-count: u0,
+                cancelled: false,
+                refund-percentage: u0,
             })
             (var-set ticket-price price)
             (var-set last-token-id event-id)
@@ -158,6 +169,7 @@
             err-not-found
         )
         (asserts! (> (get date event) burn-block-height) err-event-ended)
+        (asserts! (not (get cancelled event)) err-event-cancelled)
         (try! (stx-transfer? total-cost tx-sender (var-get contract-owner)))
         (fold batch-mint-helper (list u1 u2 u3 u4 u5 u6 u7 u8 u9 u10) {
             event-id: event-id,
@@ -199,6 +211,7 @@
         (asserts! (is-eq tx-sender (var-get contract-owner)) err-owner-only)
         (let ((event (unwrap! (map-get? events event-id) err-not-found)))
             (asserts! (> (get date event) burn-block-height) err-event-ended)
+            (asserts! (not (get cancelled event)) err-event-cancelled)
             (asserts!
                 (<= (+ (get tickets-sold event) (len recipients))
                     (get max-tickets event)
@@ -237,6 +250,7 @@
             err-not-found
         )
         (asserts! (> (get date event) burn-block-height) err-event-ended)
+        (asserts! (not (get cancelled event)) err-event-cancelled)
         (try! (stx-transfer? (var-get ticket-price) tx-sender (var-get contract-owner)))
         (try! (nft-mint? event-ticket new-id tx-sender))
         (map-set tickets new-id {
@@ -246,6 +260,7 @@
             transfer-allowed: false,
             used: false,
             check-in-time: none,
+            refund-claimed: false,
         })
         (map-set events event-id
             (merge event { tickets-sold: (+ (get tickets-sold event) u1) })
@@ -437,4 +452,44 @@
 
 (define-read-only (get-listing (token-id uint))
     (map-get? marketplace-listings token-id)
+)
+
+(define-public (cancel-event
+        (event-id uint)
+        (refund-percentage uint)
+    )
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) err-owner-only)
+        (asserts! (<= refund-percentage u100) err-invalid-price)
+        (let ((event (unwrap! (map-get? events event-id) err-not-found)))
+            (asserts! (not (get cancelled event)) err-already-listed)
+            (map-set events event-id
+                (merge event {
+                    cancelled: true,
+                    refund-percentage: refund-percentage,
+                })
+            )
+            (ok true)
+        )
+    )
+)
+
+(define-public (claim-refund
+        (token-id uint)
+        (event-id uint)
+    )
+    (let (
+            (ticket (unwrap! (map-get? tickets token-id) err-not-found))
+            (event (unwrap! (map-get? events event-id) err-not-found))
+            (refund-amount (/ (* (var-get ticket-price) (get refund-percentage event)) u100))
+        )
+        (asserts! (is-eq (get owner ticket) tx-sender) err-not-authorized)
+        (asserts! (is-eq (get event-date ticket) (get date event)) err-not-found)
+        (asserts! (get cancelled event) err-refund-not-available)
+        (asserts! (not (get refund-claimed ticket)) err-refund-claimed)
+        (asserts! (> refund-amount u0) err-refund-not-available)
+        (try! (stx-transfer? refund-amount (var-get contract-owner) tx-sender))
+        (map-set tickets token-id (merge ticket { refund-claimed: true }))
+        (ok refund-amount)
+    )
 )
