@@ -27,7 +27,7 @@ describe("Event Ticket NFTs with Analytics - Core Tests", () => {
         deployer
       );
       expect(result).toBeOk();
-      expect(result).toBeUint(1);
+      expect(result.expectOk()).toBeUint(1);
     });
 
     it("can purchase tickets and track analytics", () => {
@@ -47,7 +47,7 @@ describe("Event Ticket NFTs with Analytics - Core Tests", () => {
         wallet1
       );
       expect(result).toBeOk();
-      expect(result).toBeUint(1);
+      expect(result.expectOk()).toBeUint(1);
 
       // Check analytics were updated
       const analyticsResult = simnet.callReadOnlyFn(
@@ -139,7 +139,7 @@ describe("Event Ticket NFTs with Analytics - Core Tests", () => {
         wallet1
       );
       expect(unauthorizedResult).toBeErr();
-      expect(unauthorizedResult).toBeErrUint(100); // err-owner-only
+      expect(unauthorizedResult.expectErr()).toBeUint(100); // err-owner-only
 
       // Authorized access should succeed
       const { result: authorizedResult } = simnet.callPublicFn(
@@ -163,7 +163,7 @@ describe("Event Ticket NFTs with Analytics - Core Tests", () => {
         deployer
       );
       expect(result).toBeOk();
-      expect(result).toBeBool(true);
+      expect(result.expectOk()).toBeBool(true);
 
       // Verify popularity was set
       const popularityResult = simnet.callReadOnlyFn(
@@ -188,7 +188,7 @@ describe("Event Ticket NFTs with Analytics - Core Tests", () => {
         deployer
       );
       expect(result).toBeErr();
-      expect(result).toBeErrUint(107); // err-no-analytics-data
+      expect(result.expectErr()).toBeUint(107); // err-no-analytics-data
     });
 
     it("handles zero division in calculations gracefully", () => {
