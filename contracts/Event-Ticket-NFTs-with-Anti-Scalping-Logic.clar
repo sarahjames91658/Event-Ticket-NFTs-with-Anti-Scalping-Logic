@@ -64,7 +64,10 @@
 )
 
 (define-map time-based-metrics
-    { event-id: uint, time-period: (string-ascii 20) }
+    {
+        event-id: uint,
+        time-period: (string-ascii 20),
+    }
     {
         period-revenue: uint,
         period-sales: uint,
@@ -101,20 +104,25 @@
     })
 )
 
-(define-private (update-purchase-analytics (event-id uint) (price uint))
+(define-private (update-purchase-analytics
+        (event-id uint)
+        (price uint)
+    )
     (let ((analytics (default-to {
-        total-revenue: u0,
-        tickets-purchased: u0,
-        tickets-checked-in: u0,
-        no-shows: u0,
-        refunds-claimed: u0,
-        marketplace-sales: u0,
-        average-sale-price: u0,
-        first-purchase-block: u0,
-        last-purchase-block: u0,
-        peak-purchase-block: u0,
-        scalping-attempts: u0,
-    } (map-get? event-analytics event-id))))
+            total-revenue: u0,
+            tickets-purchased: u0,
+            tickets-checked-in: u0,
+            no-shows: u0,
+            refunds-claimed: u0,
+            marketplace-sales: u0,
+            average-sale-price: u0,
+            first-purchase-block: u0,
+            last-purchase-block: u0,
+            peak-purchase-block: u0,
+            scalping-attempts: u0,
+        }
+            (map-get? event-analytics event-id)
+        )))
         (map-set event-analytics event-id {
             total-revenue: (+ (get total-revenue analytics) price),
             tickets-purchased: (+ (get tickets-purchased analytics) u1),
@@ -122,8 +130,13 @@
             no-shows: (get no-shows analytics),
             refunds-claimed: (get refunds-claimed analytics),
             marketplace-sales: (get marketplace-sales analytics),
-            average-sale-price: (/ (+ (get total-revenue analytics) price) (+ (get tickets-purchased analytics) u1)),
-            first-purchase-block: (if (is-eq (get first-purchase-block analytics) u0) burn-block-height (get first-purchase-block analytics)),
+            average-sale-price: (/ (+ (get total-revenue analytics) price)
+                (+ (get tickets-purchased analytics) u1)
+            ),
+            first-purchase-block: (if (is-eq (get first-purchase-block analytics) u0)
+                burn-block-height
+                (get first-purchase-block analytics)
+            ),
             last-purchase-block: burn-block-height,
             peak-purchase-block: burn-block-height,
             scalping-attempts: (get scalping-attempts analytics),
@@ -131,7 +144,10 @@
     )
 )
 
-(define-private (initialize-ticket-utilization (ticket-id uint) (price uint))
+(define-private (initialize-ticket-utilization
+        (ticket-id uint)
+        (price uint)
+    )
     (map-set ticket-utilization ticket-id {
         purchase-block: burn-block-height,
         check-in-block: none,
@@ -270,7 +286,10 @@
             (checked-in (get tickets-checked-in analytics))
         )
         (ok {
-            attendance-rate: (if (> purchased u0) (/ (* checked-in u100) purchased) u0),
+            attendance-rate: (if (> purchased u0)
+                (/ (* checked-in u100) purchased)
+                u0
+            ),
             total-purchased: purchased,
             total-checked-in: checked-in,
             no-shows: (- purchased checked-in),
@@ -298,15 +317,24 @@
         )
         (ok {
             no-show-count: no-shows,
-            no-show-rate: (if (> purchased u0) (/ (* no-shows u100) purchased) u0),
+            no-show-rate: (if (> purchased u0)
+                (/ (* no-shows u100) purchased)
+                u0
+            ),
             total-tickets: purchased,
             attended: checked-in,
         })
     )
 )
 
-(define-read-only (get-seasonal-trends (event-id uint) (time-period (string-ascii 20)))
-    (let ((metrics (map-get? time-based-metrics { event-id: event-id, time-period: time-period })))
+(define-read-only (get-seasonal-trends
+        (event-id uint)
+        (time-period (string-ascii 20))
+    )
+    (let ((metrics (map-get? time-based-metrics {
+            event-id: event-id,
+            time-period: time-period,
+        })))
         (match metrics
             some-metrics (ok some-metrics)
             (ok {
@@ -334,13 +362,17 @@
         (asserts! (is-eq tx-sender contract-owner) err-owner-only)
         (let (
                 (event-info (unwrap! (map-get? events event-id) err-not-found))
-                (analytics (unwrap! (map-get? event-analytics event-id) err-no-analytics-data))
+                (analytics (unwrap! (map-get? event-analytics event-id)
+                    err-no-analytics-data
+                ))
                 (popularity (default-to {
                     popularity-score: u0,
                     ranking-position: u0,
                     trending-factor: u0,
                     social-engagement: u0,
-                } (map-get? event-popularity event-id)))
+                }
+                    (map-get? event-popularity event-id)
+                ))
             )
             (ok {
                 event-details: event-info,
@@ -359,10 +391,20 @@
             (ok {
                 scalping-attempts: (get scalping-attempts analytics),
                 prevention-rate: (if (> (get tickets-purchased analytics) u0)
-                    (/ (* (- (get tickets-purchased analytics) (get scalping-attempts analytics)) u100) (get tickets-purchased analytics))
+                    (/
+                        (*
+                            (- (get tickets-purchased analytics)
+                                (get scalping-attempts analytics)
+                            )
+                            u100
+                        )
+                        (get tickets-purchased analytics)
+                    )
                     u100
                 ),
-                legitimate-purchases: (- (get tickets-purchased analytics) (get scalping-attempts analytics)),
+                legitimate-purchases: (- (get tickets-purchased analytics)
+                    (get scalping-attempts analytics)
+                ),
                 total-purchases: (get tickets-purchased analytics),
             })
         )
@@ -373,12 +415,16 @@
     (begin
         (asserts! (is-eq tx-sender contract-owner) err-owner-only)
         (let (
-                (analytics (unwrap! (map-get? event-analytics event-id) err-no-analytics-data))
+                (analytics (unwrap! (map-get? event-analytics event-id)
+                    err-no-analytics-data
+                ))
                 (event-info (unwrap! (map-get? events event-id) err-not-found))
             )
             (ok {
                 engagement-score: (if (> (get tickets-purchased analytics) u0)
-                    (/ (* (get tickets-checked-in analytics) u100) (get tickets-purchased analytics))
+                    (/ (* (get tickets-checked-in analytics) u100)
+                        (get tickets-purchased analytics)
+                    )
                     u0
                 ),
                 purchase-pattern: {
@@ -388,11 +434,15 @@
                 },
                 conversion-metrics: {
                     purchase-to-attendance: (if (> (get tickets-purchased analytics) u0)
-                        (/ (* (get tickets-checked-in analytics) u100) (get tickets-purchased analytics))
+                        (/ (* (get tickets-checked-in analytics) u100)
+                            (get tickets-purchased analytics)
+                        )
                         u0
                     ),
                     capacity-utilization: (if (> (get max-tickets event-info) u0)
-                        (/ (* (get tickets-purchased analytics) u100) (get max-tickets event-info))
+                        (/ (* (get tickets-purchased analytics) u100)
+                            (get max-tickets event-info)
+                        )
                         u0
                     ),
                 },
@@ -405,18 +455,24 @@
     (begin
         (asserts! (is-eq tx-sender contract-owner) err-owner-only)
         (let (
-                (analytics (unwrap! (map-get? event-analytics event-id) err-no-analytics-data))
+                (analytics (unwrap! (map-get? event-analytics event-id)
+                    err-no-analytics-data
+                ))
                 (event-info (unwrap! (map-get? events event-id) err-not-found))
             )
             (ok {
                 revenue-per-ticket: (get average-sale-price analytics),
                 total-revenue: (get total-revenue analytics),
                 demand-indicator: (if (> (get max-tickets event-info) u0)
-                    (/ (* (get tickets-purchased analytics) u100) (get max-tickets event-info))
+                    (/ (* (get tickets-purchased analytics) u100)
+                        (get max-tickets event-info)
+                    )
                     u0
                 ),
                 pricing-score: (if (and (> (get tickets-purchased analytics) u0) (> (get max-tickets event-info) u0))
-                    (/ (* (get tickets-purchased analytics) u100) (get max-tickets event-info))
+                    (/ (* (get tickets-purchased analytics) u100)
+                        (get max-tickets event-info)
+                    )
                     u0
                 ),
                 marketplace-activity: (get marketplace-sales analytics),
@@ -425,13 +481,23 @@
     )
 )
 
-(define-public (update-event-popularity (event-id uint) (popularity-score uint) (social-engagement uint))
+(define-public (update-event-popularity
+        (event-id uint)
+        (popularity-score uint)
+        (social-engagement uint)
+    )
     (begin
         (asserts! (is-eq tx-sender contract-owner) err-owner-only)
         (map-set event-popularity event-id {
             popularity-score: popularity-score,
             ranking-position: u0, ;; This would be calculated based on comparison with other events
-            trending-factor: (if (> popularity-score u75) u3 (if (> popularity-score u50) u2 u1)),
+            trending-factor: (if (> popularity-score u75)
+                u3
+                (if (> popularity-score u50)
+                    u2
+                    u1
+                )
+            ),
             social-engagement: social-engagement,
         })
         (ok true)
@@ -447,15 +513,165 @@
     )
     (begin
         (asserts! (is-eq tx-sender contract-owner) err-owner-only)
-        (map-set time-based-metrics
-            { event-id: event-id, time-period: time-period }
-            {
-                period-revenue: period-revenue,
-                period-sales: period-sales,
-                period-attendance: period-attendance,
-                seasonal-factor: (if (> period-sales u100) u120 (if (> period-sales u50) u100 u80)),
-            }
-        )
+        (map-set time-based-metrics {
+            event-id: event-id,
+            time-period: time-period,
+        } {
+            period-revenue: period-revenue,
+            period-sales: period-sales,
+            period-attendance: period-attendance,
+            seasonal-factor: (if (> period-sales u100)
+                u120
+                (if (> period-sales u50)
+                    u100
+                    u80
+                )
+            ),
+        })
         (ok true)
+    )
+)
+
+(define-constant err-not-ticket-owner (err u110))
+(define-constant err-not-listed (err u111))
+(define-constant err-price-too-high (err u112))
+(define-constant err-invalid-config (err u113))
+(define-constant err-transfer-failed (err u114))
+(define-constant err-payment-failed (err u115))
+
+(define-data-var max-list-price uint u0)
+(define-data-var fee-bps uint u0)
+(define-data-var fee-recipient principal contract-owner)
+
+(define-map listings
+    uint
+    {
+        seller: principal,
+        price: uint,
+    }
+)
+
+(define-read-only (get-max-list-price)
+    (ok (var-get max-list-price))
+)
+
+(define-read-only (get-fee-bps)
+    (ok (var-get fee-bps))
+)
+
+(define-read-only (get-fee-recipient)
+    (ok (var-get fee-recipient))
+)
+
+(define-read-only (get-listing (token-id uint))
+    (let ((listing (map-get? listings token-id)))
+        (match listing
+            some-listing (ok some-listing)
+            err-not-found
+        )
+    )
+)
+
+(define-read-only (is-listed (token-id uint))
+    (is-some (map-get? listings token-id))
+)
+
+(define-public (set-max-list-price (price uint))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (ok (var-set max-list-price price))
+    )
+)
+
+(define-public (set-fee-bps (bps uint))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (asserts! (<= bps u10000) err-invalid-config)
+        (ok (var-set fee-bps bps))
+    )
+)
+
+(define-public (set-fee-recipient (recipient principal))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (ok (var-set fee-recipient recipient))
+    )
+)
+
+(define-public (list-for-sale
+        (token-id uint)
+        (price uint)
+    )
+    (let (
+            (owner-response (nft-get-owner? event-ticket token-id))
+            (current-owner (unwrap! owner-response err-not-found))
+        )
+        (asserts! (is-eq tx-sender current-owner) err-not-ticket-owner)
+        (asserts! (> price u0) err-invalid-price)
+        (let ((current-max (var-get max-list-price)))
+            (if (and (> current-max u0) (> price current-max))
+                err-price-too-high
+                (begin
+                    (map-set listings token-id {
+                        seller: tx-sender,
+                        price: price,
+                    })
+                    (ok true)
+                )
+            )
+        )
+    )
+)
+
+(define-public (cancel-listing (token-id uint))
+    (let ((listing (unwrap! (map-get? listings token-id) err-not-listed)))
+        (asserts! (is-eq tx-sender (get seller listing)) err-not-authorized)
+        (map-delete listings token-id)
+        (ok true)
+    )
+)
+
+(define-public (buy-ticket (token-id uint))
+    (let (
+            (listing (unwrap! (map-get? listings token-id) err-not-listed))
+            (owner-response (nft-get-owner? event-ticket token-id))
+            (current-owner (unwrap! owner-response err-not-found))
+            (seller (get seller listing))
+            (price (get price listing))
+            (current-fee-bps (var-get fee-bps))
+            (current-fee-recipient (var-get fee-recipient))
+            (fee-amount (/ (* price current-fee-bps) u10000))
+            (seller-amount (- price fee-amount))
+        )
+        (asserts! (is-eq current-owner seller) err-not-listed)
+        (if (> current-fee-bps u0)
+            (begin
+                (try! (stx-transfer? fee-amount tx-sender current-fee-recipient))
+                (try! (stx-transfer? seller-amount tx-sender seller))
+                (let ((transfer-result (nft-transfer? event-ticket token-id seller tx-sender)))
+                    (match transfer-result
+                        result-ok (begin
+                            (map-delete listings token-id)
+                            (ok true)
+                        )
+                        result-err
+                        err-transfer-failed
+                    )
+                )
+            )
+            (begin
+                (try! (stx-transfer? price tx-sender seller))
+                (let ((transfer-result (nft-transfer? event-ticket token-id seller tx-sender)))
+                    (match transfer-result
+                        result-ok (begin
+                            (map-delete listings token-id)
+                            (ok true)
+                        )
+                        result-err
+                        err-transfer-failed
+                    )
+                )
+            )
+        )
     )
 )
