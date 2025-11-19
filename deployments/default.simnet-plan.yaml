@@ -62,6 +62,6 @@ plan:
         - emulated-contract-publish:
             contract-name: Event-Ticket-NFTs-with-Anti-Scalping-Logic
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/Event-Ticket-NFTs-with-Anti-Scalping-Logic.clar
+            path: "contracts\\Event-Ticket-NFTs-with-Anti-Scalping-Logic.clar"
             clarity-version: 3
       epoch: "3.1"
